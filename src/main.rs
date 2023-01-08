@@ -1,41 +1,36 @@
 use std::io::BufReader;
-use std::io::BufRead;
+use std::io::{self,BufRead, Write};
 use std::fs::File;
 use clap::Parser;
-
+use anyhow::{Context, Result, Ok};
 
 #[derive(Parser)]
 struct Cli {
     pattern: String,
-    // path: 
     path: std::path::PathBuf,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let args = Cli::parse();
+    let path = args.path.to_str().unwrap();
+    let stdout = io::stdout();
+    let mut handle = io::BufWriter::new(stdout.lock());
     
-    // This is the version in the guide
-    // let content = std::fs::read_to_string(&args.path).expect("could not read file");
     
-    // for line in content.lines() {
-    //     if line.contains(&args.pattern) {
-    //         println!("{}", line);
-    //     }
-    // }
-
-    // This was a task, which was not covered by the tutorial (optimization)
-    let file = File::open(&args.path).unwrap();
+    let file = File::open(path).with_context(|| format!("Are you sure `{}` exists?", path))?;
     let reader = BufReader::new(file);
+    let content = reader.lines();
 
-    for (_index, line) in reader.lines().enumerate() {
-        match line {
-            Ok(line) => {
-                if line.contains(&args.pattern) {
-                    println!("{}", line)
-                }
-            },
-            Err(error) => { eprintln!("{}", error) }
+    for line in content {
+
+        let line_string = line.unwrap().to_string();
+
+        if line_string.contains(&args.pattern) {
+            writeln!(handle, "{}", line_string)?;
         }
     }
 
+    Ok(())
+
 }
+
